@@ -1,0 +1,1202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="A steering trainer for novice coxswains. Cox a rowing eight seen from above and learn how the rudder and each rower turn the boat.">
+<meta name="theme-color" content="#EDF1EE">
+<style>
+  :root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  img { max-width: 100%; }
+  [hidden] { display: none !important; }
+</style>
+<title>Steer the Eight</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap">
+<style>
+  /* Layout: the river view sits on top with the cox's controls below it on phones;
+     on wide screens the view stays pinned on the left and the controls scroll on the right. */
+  :root {
+    --paper: #EDF1EE;      /* page ground, a river-mist green-grey */
+    --panel: #FFFFFF;
+    --panel-2: #E2E8E4;
+    --ink: #13211D;
+    --ink-2: #4B5C56;
+    --line: #C9D4CE;
+    --port: #C2342D;       /* port is red, like a port navigation light */
+    --stbd: #1D8048;       /* starboard is green */
+    --accent: #DFA11A;     /* blade gold */
+    --accent-ink: #1E1606;
+    --sel-bg: #FBF0D4;
+    --focus: #1F5FD6;
+    --hud-bg: rgba(9, 24, 22, 0.74);
+    --hud-ink: #F1F5F2;
+    --font-display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", system-ui, sans-serif;
+    --font-body: "Barlow", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #0E1614; --panel: #16211E; --panel-2: #1F2C28; --ink: #E4ECE7; --ink-2: #9DB0A8;
+      --line: #2C3C37; --port: #F0645D; --stbd: #42C47B; --accent: #F0B536; --accent-ink: #1E1606;
+      --sel-bg: #3A3016; --focus: #84A9FF;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #0E1614; --panel: #16211E; --panel-2: #1F2C28; --ink: #E4ECE7; --ink-2: #9DB0A8;
+    --line: #2C3C37; --port: #F0645D; --stbd: #42C47B; --accent: #F0B536; --accent-ink: #1E1606;
+    --sel-bg: #3A3016; --focus: #84A9FF;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font: 15px/1.45 var(--font-body);
+    -webkit-tap-highlight-color: transparent;
+  }
+  button, select, input { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+  .app {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 12px 40px;
+    display: grid;
+    gap: 12px;
+  }
+
+  /* Header */
+  .top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; }
+  .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .mark {
+    font: 700 17px/1 var(--font-display);
+    background: var(--ink); color: var(--paper);
+    border-radius: 8px; padding: 7px 7px 6px; letter-spacing: 0.02em;
+  }
+  h1 { margin: 0; font: 700 26px/1 var(--font-display); letter-spacing: 0.01em; text-wrap: balance; }
+  .sub { margin: 2px 0 0; font-size: 13px; color: var(--ink-2); }
+  .drill-bar { display: flex; align-items: center; gap: 8px; }
+  .label {
+    font: 600 11px/1 var(--font-body); letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-2);
+  }
+  select {
+    appearance: none; -webkit-appearance: none;
+    background: var(--panel) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23889990'/%3E%3C/svg%3E") no-repeat right 10px center;
+    border: 1px solid var(--line); border-radius: 10px;
+    padding: 8px 30px 8px 12px; font-weight: 600; min-height: 40px;
+  }
+  .btn {
+    min-height: 40px; padding: 8px 14px; border-radius: 10px;
+    border: 1px solid var(--line); background: var(--panel); font-weight: 600;
+  }
+  .btn.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .btn.small { min-height: 34px; padding: 4px 12px; font-size: 13px; }
+
+  .layout { display: grid; gap: 14px; }
+  .side { display: grid; gap: 14px; align-content: start; }
+  @media (min-width: 940px) {
+    .layout { grid-template-columns: minmax(0, 1fr) 390px; align-items: start; }
+    .stage { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); }
+    .view { height: min(calc(100svh - 190px), 780px) !important; min-height: 460px; }
+  }
+
+  /* Goal strip */
+  .goal {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: start;
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius) var(--radius) 0 0;
+    border-bottom: 0; padding: 10px 12px;
+  }
+  .goal-main { font-size: 14px; line-height: 1.4; }
+  .goal-main strong { font: 700 17px/1 var(--font-display); letter-spacing: 0.02em; text-transform: uppercase; margin-right: 6px; }
+  .goal-side { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+  .progress {
+    font: 600 15px/1.1 var(--font-display); font-variant-numeric: tabular-nums; white-space: nowrap;
+    background: var(--panel-2); border-radius: 999px; padding: 4px 10px;
+  }
+  .link { background: none; border: 0; padding: 2px 0; color: var(--ink-2); font-size: 13px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+  .hint { grid-column: 1 / -1; margin: 2px 0 0; font-size: 14px; color: var(--ink-2); max-width: 65ch; }
+
+  /* River view */
+  .view {
+    position: relative; height: clamp(300px, 47svh, 580px);
+    border-radius: 0 0 var(--radius) var(--radius); overflow: hidden; background: #2C6664;
+  }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: manipulation; }
+  .hud {
+    position: absolute; top: 8px; left: 8px; right: 8px;
+    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; pointer-events: none;
+  }
+  .hud-cell { background: var(--hud-bg); color: var(--hud-ink); border-radius: 10px; padding: 5px 8px 6px; display: grid; gap: 1px; min-width: 0; }
+  .hud .k { font: 600 10px/1.1 var(--font-body); letter-spacing: 0.09em; text-transform: uppercase; opacity: 0.72; }
+  .hud .v { font: 600 22px/1.05 var(--font-display); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .hud .u { font-size: 11px; line-height: 1.1; opacity: 0.85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hud .u.port { color: #FF8C85; opacity: 1; }
+  .hud .u.stbd { color: #6EE29F; opacity: 1; }
+
+  .bubble {
+    position: absolute; top: 72px; left: 50%; transform: translateX(-50%);
+    max-width: min(70%, 360px); text-align: center;
+    background: var(--accent); color: var(--accent-ink);
+    font: 700 20px/1.1 var(--font-display); letter-spacing: 0.01em;
+    padding: 8px 14px; border-radius: 12px; box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+    pointer-events: none;
+  }
+  .bubble::after {
+    content: ""; position: absolute; left: 50%; bottom: -7px; margin-left: -7px;
+    border: 7px solid transparent; border-bottom: 0; border-top-color: var(--accent);
+  }
+  .tools { position: absolute; right: 8px; top: 72px; display: grid; gap: 6px; justify-items: end; }
+  .tool {
+    min-width: 40px; min-height: 36px; padding: 4px 10px; border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.18); background: var(--hud-bg); color: var(--hud-ink);
+    font: 600 14px/1 var(--font-body);
+  }
+  .coach {
+    position: absolute; left: 0; right: 0; bottom: 0; margin: 0;
+    padding: 22px 12px 10px; color: #F4F7F5; font-size: 14px; line-height: 1.35;
+    background: linear-gradient(to top, rgba(8,20,18,0.88) 55%, rgba(8,20,18,0));
+    min-height: 54px; text-wrap: pretty;
+  }
+  .coach b { font: 700 11px/1 var(--font-body); letter-spacing: 0.1em; text-transform: uppercase; color: #F2C24F; margin-right: 6px; }
+
+  .result {
+    position: absolute; inset: 0; display: grid; place-items: center; padding: 16px;
+    background: rgba(6, 16, 14, 0.5);
+  }
+  .result-card {
+    background: var(--panel); color: var(--ink); border-radius: var(--radius);
+    padding: 18px 18px 16px; width: min(100%, 380px); box-shadow: 0 16px 40px rgba(0,0,0,0.35);
+  }
+  .result-kicker { margin: 0 0 4px; }
+  .result-card h2 { margin: 0 0 6px; font: 700 28px/1 var(--font-display); text-wrap: balance; }
+  .result-card h2.win { color: var(--stbd); }
+  .result-card h2.fail { color: var(--port); }
+  .result-card p { margin: 0 0 14px; }
+  .result-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  /* Panels */
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
+  .controls { padding: 12px; display: grid; gap: 14px; }
+  .block { display: grid; gap: 8px; }
+  .block-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .block-head output { font-size: 13px; font-weight: 600; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+  /* Rudder */
+  .steer-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+  .side-tag { font: 700 13px/1 var(--font-display); letter-spacing: 0.06em; text-transform: uppercase; }
+  .side-tag.port, .crew-side.port { color: var(--port); }
+  .side-tag.stbd, .crew-side.stbd { color: var(--stbd); }
+  .rudder-wrap { position: relative; }
+  .rudder-wrap::before {
+    content: ""; position: absolute; left: 50%; top: 6px; bottom: 6px; width: 2px; margin-left: -1px;
+    background: var(--ink-2); opacity: 0.5; pointer-events: none;
+  }
+  input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 40px; background: transparent; margin: 0; }
+  input[type="range"]::-webkit-slider-runnable-track { height: 8px; border-radius: 99px; background: var(--panel-2); }
+  input[type="range"]::-moz-range-track { height: 8px; border-radius: 99px; background: var(--panel-2); }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 30px; height: 30px; margin-top: -11px; border-radius: 50%;
+    background: var(--accent); border: 2px solid var(--ink); box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  }
+  input[type="range"]::-moz-range-thumb { width: 26px; height: 26px; border-radius: 50%; background: var(--accent); border: 2px solid var(--ink); }
+  #rudder::-webkit-slider-runnable-track { background: linear-gradient(90deg, var(--port), var(--panel-2) 42%, var(--panel-2) 58%, var(--stbd)); }
+  #rudder::-moz-range-track { background: linear-gradient(90deg, var(--port), var(--panel-2) 42%, var(--panel-2) 58%, var(--stbd)); }
+  .steer-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); }
+
+  /* Who: seat map and group chips */
+  .who-grid { display: grid; grid-template-columns: 148px minmax(0, 1fr); gap: 12px; align-items: start; }
+  .seatmap { display: grid; grid-template-columns: 1fr 12px 1fr; grid-template-rows: auto repeat(4, 42px) auto; gap: 5px; }
+  .seatmap .end { grid-column: 1 / -1; text-align: center; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
+  .hullbar { grid-column: 2; grid-row: 2 / span 4; background: var(--panel-2); border: 1px solid var(--line); border-radius: 999px; }
+  .seat {
+    position: relative; overflow: hidden; display: flex; align-items: center; justify-content: space-between; gap: 2px;
+    padding: 0 7px; border: 1px solid var(--line); background: var(--panel); border-radius: 9px; min-width: 0;
+  }
+  .seat.port { border-left: 5px solid var(--port); }
+  .seat.stbd { border-right: 5px solid var(--stbd); flex-direction: row-reverse; }
+  .seat .num { font: 700 19px/1 var(--font-display); }
+  .seat .mode { font-size: 11px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+  .seat[data-mode="row"] .mode { color: var(--ink); }
+  .seat[data-mode="back"] .mode, .seat[data-mode="hold"] .mode { color: var(--accent-ink); background: var(--accent); border-radius: 4px; padding: 1px 4px; }
+  .seat .bar { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; }
+  .seat .bar i { display: block; height: 100%; background: var(--accent); transform-origin: left center; transform: scaleX(0); }
+  .seat.stbd .bar i { transform-origin: right center; }
+  .seat[aria-pressed="true"] { background: var(--sel-bg); box-shadow: inset 0 0 0 2px var(--accent); }
+  .chips { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; align-content: start; padding-top: 18px; }
+  .chip {
+    min-height: 42px; padding: 4px 6px; border-radius: 999px; border: 1px solid var(--line);
+    background: var(--panel); font-weight: 600; font-size: 13px; line-height: 1.1;
+  }
+  .chip[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+  /* Calls */
+  .call-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  .call {
+    display: grid; gap: 3px; place-content: center; text-align: center; min-height: 60px; padding: 6px 4px;
+    border-radius: 12px; border: 1px solid var(--line); background: var(--panel-2);
+    font: 700 17px/1.02 var(--font-display); letter-spacing: 0.01em;
+  }
+  .call small { font: 500 11px/1.1 var(--font-body); color: var(--ink-2); letter-spacing: 0; }
+  .call.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .call.primary small { color: inherit; opacity: 0.75; }
+  .call:active, .chip:active, .seat:active { transform: translateY(1px); }
+  .call.flash { box-shadow: 0 0 0 3px var(--accent); }
+  .pr-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .seg button { border: 0; background: var(--panel); padding: 8px 12px; min-height: 40px; font-weight: 600; font-size: 14px; }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+  .rate { display: inline-flex; align-items: center; gap: 6px; }
+  .rate button { width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); font-size: 20px; line-height: 1; }
+  .rate output { font: 700 22px/1 var(--font-display); font-variant-numeric: tabular-nums; min-width: 2ch; text-align: right; }
+  .rate span { font-size: 13px; color: var(--ink-2); }
+  .need-who { animation: nudge 0.5s ease; }
+  @keyframes nudge { 30% { transform: translateX(-4px); } 60% { transform: translateX(4px); } }
+
+  /* Folding panels */
+  .fold > summary {
+    list-style: none; cursor: pointer; padding: 14px; display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+    font: 700 18px/1 var(--font-display); letter-spacing: 0.02em; text-transform: uppercase;
+  }
+  .fold > summary::-webkit-details-marker { display: none; }
+  .fold > summary::after { content: "+"; font-size: 22px; color: var(--ink-2); }
+  .fold[open] > summary::after { content: "–"; }
+  .fold > summary small { font: 500 13px/1 var(--font-body); text-transform: none; letter-spacing: 0; color: var(--ink-2); margin-left: auto; }
+  .fold-body { padding: 0 14px 16px; display: grid; gap: 12px; }
+  .note { margin: 0; font-size: 14px; color: var(--ink-2); max-width: 65ch; }
+  .preset-row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .preset-row .chip { min-height: 36px; padding: 4px 12px; }
+  .crew-row { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 14px; padding-top: 10px; border-top: 1px solid var(--line); }
+  .crew-name { grid-column: 1 / -1; display: flex; align-items: baseline; gap: 8px; font-weight: 700; }
+  .crew-side { font: 700 12px/1 var(--font-display); letter-spacing: 0.06em; text-transform: uppercase; }
+  .crew-ctl { display: grid; font-size: 13px; color: var(--ink-2); }
+  .crew-ctl span { display: flex; justify-content: space-between; gap: 6px; }
+  .crew-ctl output { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  .help { display: grid; gap: 14px; }
+  .help h3 { margin: 0 0 3px; font: 700 16px/1.15 var(--font-display); letter-spacing: 0.02em; }
+  .help p { margin: 0; font-size: 14px; max-width: 65ch; }
+  .help .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: 0; margin: 0 3px 0 1px; }
+  .help .swatch.port { background: var(--port); }
+  .help .swatch.stbd { background: var(--stbd); }
+  kbd { font: 600 12px/1 ui-monospace, Menlo, monospace; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 2px 5px; background: var(--panel-2); }
+
+  @media (max-width: 400px) {
+    .who-grid { grid-template-columns: 132px minmax(0, 1fr); gap: 8px; }
+    .call { font-size: 15px; }
+    .hud .v { font-size: 19px; }
+    .hud-cell { padding: 4px 6px 5px; }
+    h1 { font-size: 23px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .need-who { animation: none; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <span class="mark" aria-hidden="true">8+</span>
+      <div>
+        <h1>Steer the Eight</h1>
+        <p class="sub">A steering trainer for novice coxswains</p>
+      </div>
+    </div>
+    <div class="drill-bar">
+      <label class="label" for="drill">Drill</label>
+      <select id="drill"></select>
+      <button class="btn" id="restart" type="button">Restart</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <section class="stage" aria-label="River">
+      <div class="goal">
+        <div class="goal-main"><strong id="goalName"></strong><span id="goalText"></span></div>
+        <div class="goal-side">
+          <span class="progress" id="progress"></span>
+          <button class="link" id="hintBtn" type="button" aria-expanded="false" aria-controls="hint">Hint</button>
+        </div>
+        <p class="hint" id="hint" hidden></p>
+      </div>
+      <div class="view" id="view">
+        <canvas id="river" role="img" aria-label="The river seen from above, with your boat and crew"></canvas>
+        <div class="hud">
+          <div class="hud-cell"><span class="k">Split</span><span class="v" id="hudSplit">—</span><span class="u" id="hudSplitU">/500m</span></div>
+          <div class="hud-cell"><span class="k">Rate</span><span class="v" id="hudRate">—</span><span class="u">strokes/min</span></div>
+          <div class="hud-cell"><span class="k">Turning</span><span class="v" id="hudTurn">0.0°/s</span><span class="u" id="hudTurnU">steady</span></div>
+          <div class="hud-cell"><span class="k">Off line</span><span class="v" id="hudCourse">0°</span><span class="u" id="hudCourseU">on line</span></div>
+        </div>
+        <div class="bubble" id="bubble" aria-live="polite" hidden></div>
+        <div class="tools">
+          <button class="tool" id="viewBtn" type="button" title="Switch between the cox's view and a north-up map">Cox view</button>
+          <button class="tool" id="zoomIn" type="button" aria-label="Zoom in">+</button>
+          <button class="tool" id="zoomOut" type="button" aria-label="Zoom out">−</button>
+          <button class="tool" id="pauseBtn" type="button">Pause</button>
+        </div>
+        <p class="coach" id="coach" aria-live="polite"><b>Why</b><span id="coachText"></span></p>
+        <div class="result" id="result" hidden>
+          <div class="result-card" role="dialog" aria-labelledby="resultTitle">
+            <p class="label result-kicker" id="resultKicker"></p>
+            <h2 id="resultTitle"></h2>
+            <p id="resultText"></p>
+            <div class="result-actions">
+              <button class="btn primary" id="retryBtn" type="button">Try again</button>
+              <button class="btn" id="nextBtn" type="button">Next drill</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="side">
+      <section class="panel controls" aria-label="Cox controls">
+        <div class="block">
+          <div class="block-head"><span class="label">Rudder</span><output id="rudderOut">Centered</output></div>
+          <div class="steer-row">
+            <span class="side-tag port">Port</span>
+            <div class="rudder-wrap"><input type="range" id="rudder" min="-100" max="100" step="1" value="0" aria-label="Rudder, from full port to full starboard"></div>
+            <span class="side-tag stbd">Stbd</span>
+          </div>
+          <div class="steer-foot">
+            <span>Port is your left, starboard your right.</span>
+            <button class="btn small" id="centerBtn" type="button">Center</button>
+          </div>
+        </div>
+
+        <div class="block">
+          <div class="block-head"><span class="label">Who</span><output id="whoOut">All eight</output></div>
+          <div class="who-grid">
+            <div class="seatmap" id="seatmap" role="group" aria-label="Seats, bow at the top, stroke at the bottom"></div>
+            <div class="chips" id="chips" role="group" aria-label="Groups"></div>
+          </div>
+        </div>
+
+        <div class="block">
+          <div class="block-head"><span class="label">Call</span><output id="callHint">to the seats above</output></div>
+          <div class="call-grid">
+            <button class="call primary" type="button" data-mode="row">Row<small>pull</small></button>
+            <button class="call" type="button" data-mode="back">Back it down<small>push back</small></button>
+            <button class="call" type="button" data-mode="hold">Hold water<small>brake</small></button>
+            <button class="call" type="button" data-mode="easy">Weigh enough<small>stop rowing</small></button>
+          </div>
+          <div class="pr-row">
+            <div class="seg" id="pressure" role="group" aria-label="Pressure for the selected seats">
+              <button type="button" data-p="light">Light</button>
+              <button type="button" data-p="half">Half</button>
+              <button type="button" data-p="full">Full</button>
+            </div>
+            <div class="rate" role="group" aria-label="Stroke rate">
+              <button type="button" id="rateDown" aria-label="Down two">−</button>
+              <output id="rateOut">22</output><span>spm</span>
+              <button type="button" id="rateUp" aria-label="Up two">+</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <details class="panel fold" id="crewPanel">
+        <summary>Crew <small id="crewSummary">Even crew</small></summary>
+        <div class="fold-body">
+          <p class="note">Each drill loads its own crew. Changes here apply right away, so you can watch what one rower does to the boat.</p>
+          <div class="preset-row" id="presets"></div>
+          <div id="crewTable"></div>
+        </div>
+      </details>
+
+      <details class="panel fold">
+        <summary>How the boat turns</summary>
+        <div class="fold-body help">
+          <div>
+            <h3>Port and starboard</h3>
+            <p>Port is the cox's left and starboard the cox's right. The rowers face the stern, so a port rower's blade is on their right hand. Here port is <span class="swatch port"></span>red and starboard <span class="swatch stbd"></span>green, like a boat's navigation lights.</p>
+          </div>
+          <div>
+            <h3>Seat numbers</h3>
+            <p>Seats count from the bow: bow seat is 1 and stroke is 8, right in front of you. In this standard rig, even seats row on port and odd seats on starboard.</p>
+          </div>
+          <div>
+            <h3>The stronger side pushes the bow away</h3>
+            <p>If starboard pulls harder than port, the bow swings to port. One strong rower is enough to do it. Steering against it costs speed, so it helps to know who is pulling.</p>
+          </div>
+          <div>
+            <h3>Bow seats turn the boat more</h3>
+            <p>Rowers near the bow sit far from the middle of the boat, so the same pull has more leverage on the turn. That is why "bow pair, row" is the usual call for a small correction at low speed.</p>
+          </div>
+          <div>
+            <h3>The rudder needs speed</h3>
+            <p>Rudder grip grows with the square of speed. At a standstill it does nothing, and every time you use it the boat slows a little. Going backwards it steers the opposite way and barely grips.</p>
+          </div>
+          <div>
+            <h3>Stopping</h3>
+            <p>"Weigh enough" stops the rowing and the boat glides a long way. "Hold water" squares the blades in the water and stops the boat in a couple of lengths. Holding water on one side only at speed slews the boat hard, so hold both sides and ease in.</p>
+          </div>
+          <div>
+            <h3>Spinning the boat</h3>
+            <p>To turn around at a standstill, one side rows while the other backs it down. The boat pivots toward the side that is backing. Backing is weaker than rowing, so the boat creeps forward as it turns.</p>
+          </div>
+          <div>
+            <h3>Puddles</h3>
+            <p>Each blade leaves a small swirl where it comes out of the water. Even, straight rows of puddles mean the crew is rowing together.</p>
+          </div>
+          <div>
+            <h3>About this model</h3>
+            <p>The physics is simplified and tuned to feel right. It is not a validated simulation. Real boats also roll from side to side, get pushed by wind and stream, and have crews who don't always do what you say. In the UK you may hear "easy all" for weigh enough.</p>
+          </div>
+          <div>
+            <h3>Keyboard</h3>
+            <p><kbd>←</kbd> <kbd>→</kbd> rudder, <kbd>C</kbd> center. <kbd>A</kbd> all eight, <kbd>P</kbd> port, <kbd>S</kbd> starboard, <kbd>1</kbd>–<kbd>8</kbd> one seat. <kbd>R</kbd> row, <kbd>B</kbd> back it down, <kbd>H</kbd> hold water, <kbd>W</kbd> weigh enough. <kbd>Space</kbd> pause.</p>
+          </div>
+        </div>
+      </details>
+    </div>
+  </div>
+</div>
+
+<script src="sim.js"></script>
+<script>
+(function () {
+  'use strict';
+  const S = window.EightSim;
+  const { C, SEATS, DEG } = S;
+  const $ = (q) => document.querySelector(q);
+
+  // Colors of the river scene. The scene is a picture of water and land, so it
+  // keeps one palette in both themes.
+  const W = {
+    land: '#6C8253', bank: '#A2906A', water: '#2C6664',
+    ripple: 'rgba(232, 246, 242, 0.13)', rippleDark: 'rgba(8, 36, 34, 0.25)',
+    canopy: '#4C6A35', canopyLight: '#5E7D42', shadow: 'rgba(20, 30, 15, 0.28)',
+    hull: '#F3EFE4', hullEdge: '#2B3331', deck: '#33413E',
+    rigger: '#C7CED0', shaft: '#ECE8DE', blade: '#F2B830', bladeEdge: '#7A5A0E',
+    port: '#E25A52', stbd: '#35B56F', cox: '#F2B830', head: 'rgba(20, 25, 24, 0.55)',
+    foam: 'rgba(255, 255, 255, ', path: 'rgba(255, 255, 255, 0.5)',
+    buoy: '#F7F7F2', buoyMark: '#F08A24', stone: '#A69E8F', starling: '#8B8375', deckBridge: 'rgba(190, 182, 168, 0.66)',
+    trunk: '#5A4330', leaf: '#4B6A33', text: '#F4F7F5',
+  };
+
+  const ZOOMS = [30, 48, 100];
+  let zoomIdx = 1, coxView = true, paused = false;
+  let drillIdx = 0, drill, crew, crewPreset = 'even', state;
+  let selection = new Set([1, 2, 3, 4, 5, 6, 7, 8]);
+  let puddles = [], wake = [], wakeClock = 0;
+  let camRot = 0, camAy = 0.68;
+  let lastStatus = 'run';
+  let bubbleUntil = 0;
+
+  // ------------------------------------------------------------ helpers
+  function hash(i, j) {
+    let h = (Math.imul(i, 374761393) + Math.imul(j, 668265263)) | 0;
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+  }
+  const seatShort = (n) => (n === 1 ? 'Bow' : n === 8 ? 'Stroke' : String(n));
+  function groupLabel(nums) {
+    const key = nums.join(',');
+    const g = S.GROUPS.find((x) => x.seats.join(',') === key);
+    if (g) return g.label;
+    if (nums.length === 1) return SEATS[nums[0] - 1].name;
+    const names = nums.map(seatShort);
+    return names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1];
+  }
+  const selected = () => [...selection].sort((a, b) => a - b);
+  function fmtSplit(sec) {
+    const m = Math.floor(sec / 60), s = sec - m * 60;
+    return m + ':' + (s < 10 ? '0' : '') + s.toFixed(1);
+  }
+
+  // --------------------------------------------------------- drill setup
+  const drillSel = $('#drill');
+  S.DRILLS.forEach((d, i) => {
+    const o = document.createElement('option');
+    o.value = String(i); o.textContent = d.name;
+    drillSel.appendChild(o);
+  });
+
+  function loadDrill(i, keepCrew) {
+    drillIdx = i; drill = S.DRILLS[i];
+    drillSel.value = String(i);
+    if (!keepCrew) { crewPreset = drill.crew; crew = S.makeCrew(crewPreset); syncCrewInputs(); }
+    state = S.createState(drill);
+    puddles = []; wake = [];
+    camRot = coxView ? state.psi : 0;
+    selection = new Set([1, 2, 3, 4, 5, 6, 7, 8]);
+    $('#rudder').value = '0';
+    lastStatus = 'run';
+    paused = false; $('#pauseBtn').textContent = 'Pause';
+    $('#result').hidden = true;
+    $('#coach').hidden = false;
+    $('#goalName').textContent = drill.name;
+    $('#goalText').textContent = drill.goal;
+    $('#hint').textContent = drill.hint;
+    bubbleUntil = 0; $('#bubble').hidden = true;
+    renderSelection(); updateRudderOut(); updateRateOut(); updateHud(); updateCoach(); updateProgress();
+  }
+
+  // ------------------------------------------------------------ seat map
+  const seatEls = [];
+  (function buildSeatmap() {
+    const map = $('#seatmap');
+    const top = document.createElement('div');
+    top.className = 'end'; top.textContent = 'Bow'; top.style.gridRow = '1';
+    map.appendChild(top);
+    const bar = document.createElement('div');
+    bar.className = 'hullbar';
+    map.appendChild(bar);
+    for (let row = 0; row < 4; row++) {
+      [row * 2 + 2, row * 2 + 1].forEach((n) => {
+        const seat = SEATS[n - 1];
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'seat ' + (seat.side < 0 ? 'port' : 'stbd');
+        b.style.gridRow = String(row + 2);
+        b.style.gridColumn = seat.side < 0 ? '1' : '3';
+        b.setAttribute('aria-label', seat.name + ', ' + (seat.side < 0 ? 'port' : 'starboard'));
+        b.innerHTML = '<span class="num">' + n + '</span><span class="mode">Easy</span><span class="bar"><i></i></span>';
+        b.addEventListener('click', () => toggleSeat(n));
+        map.appendChild(b);
+        seatEls[n - 1] = { el: b, mode: b.querySelector('.mode'), bar: b.querySelector('.bar i'), last: '' };
+      });
+    }
+    const bottom = document.createElement('div');
+    bottom.className = 'end'; bottom.textContent = 'Stroke · Cox'; bottom.style.gridRow = '6';
+    map.appendChild(bottom);
+  })();
+
+  const chipEls = [];
+  (function buildChips() {
+    const box = $('#chips');
+    S.GROUPS.forEach((g) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'chip'; b.textContent = g.label;
+      b.addEventListener('click', () => { selection = new Set(g.seats); renderSelection(); });
+      box.appendChild(b);
+      chipEls.push({ el: b, key: g.seats.join(',') });
+    });
+  })();
+
+  function toggleSeat(n) {
+    const key = selected().join(',');
+    const isGroup = S.GROUPS.some((g) => g.seats.join(',') === key);
+    if (isGroup && !(selection.size === 1)) selection = new Set([n]);
+    else if (selection.has(n)) selection.delete(n);
+    else selection.add(n);
+    renderSelection();
+  }
+
+  function renderSelection() {
+    const nums = selected(), key = nums.join(',');
+    seatEls.forEach((s, i) => s.el.setAttribute('aria-pressed', selection.has(i + 1) ? 'true' : 'false'));
+    chipEls.forEach((c) => c.el.setAttribute('aria-pressed', c.key === key ? 'true' : 'false'));
+    $('#whoOut').textContent = nums.length ? groupLabel(nums) : 'Nobody chosen';
+    const ps = new Set(nums.map((n) => state.seats[n - 1].pressure));
+    document.querySelectorAll('#pressure button').forEach((b) => {
+      b.setAttribute('aria-pressed', ps.size === 1 && ps.has(b.dataset.p) ? 'true' : 'false');
+    });
+  }
+
+  const MODE_TEXT = { row: 'Row', back: 'Back', hold: 'Hold', easy: 'Easy' };
+  function updateSeatsLive() {
+    for (let i = 0; i < 8; i++) {
+      const q = state.seats[i], ui = seatEls[i];
+      const label = q.pending ? '→' + MODE_TEXT[q.pending] : MODE_TEXT[q.mode];
+      if (label !== ui.last) {
+        ui.last = label; ui.mode.textContent = label;
+        ui.el.dataset.mode = q.mode;
+      }
+      const frac = Math.min(1, q.force / (C.bladePeak * 1.3));
+      ui.bar.style.transform = 'scaleX(' + frac.toFixed(3) + ')';
+    }
+  }
+
+  // --------------------------------------------------------------- calls
+  function showCall(text) {
+    const b = $('#bubble');
+    b.textContent = text; b.hidden = false;
+    bubbleUntil = performance.now() + 2600;
+  }
+  function needWho() {
+    const el = $('#seatmap');
+    el.classList.remove('need-who'); void el.offsetWidth; el.classList.add('need-who');
+    $('#whoOut').textContent = 'Choose seats first';
+  }
+
+  function doCall(mode, btn) {
+    if (state.status !== 'run') return;
+    const nums = selected();
+    if (!nums.length) { needWho(); return; }
+    const wasActive = state.seats.some(S.isActive);
+    S.command(state, crew, nums, mode);
+    const g = groupLabel(nums), all = nums.length === 8;
+    let text;
+    if (mode === 'row') text = all ? (wasActive ? 'All eight, row' : 'Ready all, row!') : g + ', row';
+    else if (mode === 'back') text = (all ? 'All eight' : g) + ', back it down';
+    else if (mode === 'hold') text = all ? 'Hold water!' : g + ', hold water';
+    else text = all ? 'Weigh enough!' : g + ', weigh enough';
+    showCall(text);
+    if (btn) { btn.classList.add('flash'); setTimeout(() => btn.classList.remove('flash'), 220); }
+    if (paused) togglePause();
+  }
+  document.querySelectorAll('.call').forEach((b) => b.addEventListener('click', () => doCall(b.dataset.mode, b)));
+
+  document.querySelectorAll('#pressure button').forEach((b) => b.addEventListener('click', () => {
+    const nums = selected();
+    if (!nums.length) { needWho(); return; }
+    S.setPressure(state, nums, b.dataset.p);
+    const g = groupLabel(nums);
+    const label = S.PRESSURE_LABEL[b.dataset.p];
+    showCall(nums.length === 8 ? label.charAt(0).toUpperCase() + label.slice(1) : g + ', ' + label);
+    renderSelection();
+  }));
+
+  function changeRate(d) {
+    const next = Math.max(16, Math.min(36, state.targetRate + d));
+    if (next === state.targetRate) return;
+    state.targetRate = next;
+    showCall(d > 0 ? 'Up two in two' : 'Down two in two');
+    updateRateOut();
+  }
+  $('#rateUp').addEventListener('click', () => changeRate(2));
+  $('#rateDown').addEventListener('click', () => changeRate(-2));
+  function updateRateOut() { $('#rateOut').textContent = String(state.targetRate); }
+
+  // -------------------------------------------------------------- rudder
+  const rudder = $('#rudder');
+  function updateRudderOut() {
+    const v = Number(rudder.value);
+    state.delta = v / 100;
+    $('#rudderOut').textContent = v === 0 ? 'Centered' : Math.abs(v) + '% to ' + (v < 0 ? 'port' : 'starboard');
+  }
+  rudder.addEventListener('input', updateRudderOut);
+  function setRudder(v) { rudder.value = String(Math.max(-100, Math.min(100, v))); updateRudderOut(); }
+  $('#centerBtn').addEventListener('click', () => setRudder(0));
+
+  // --------------------------------------------------------------- crew
+  const crewInputs = [];
+  (function buildCrew() {
+    const presets = $('#presets');
+    Object.entries(S.CREW_PRESETS).forEach(([id, p]) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'chip'; b.textContent = p.label; b.dataset.preset = id;
+      b.addEventListener('click', () => { crewPreset = id; crew = S.makeCrew(id); syncCrewInputs(); });
+      presets.appendChild(b);
+    });
+    const table = $('#crewTable');
+    SEATS.forEach((seat, i) => {
+      const row = document.createElement('div');
+      row.className = 'crew-row';
+      const sideCls = seat.side < 0 ? 'port' : 'stbd';
+      row.innerHTML =
+        '<div class="crew-name">' + seat.name + ' <span class="crew-side ' + sideCls + '">' + (seat.side < 0 ? 'Port' : 'Starboard') + '</span></div>' +
+        '<label class="crew-ctl"><span>Power <output id="pwOut' + seat.n + '"></output></span>' +
+        '<input type="range" id="pw' + seat.n + '" min="60" max="140" step="5" aria-label="' + seat.name + ' power"></label>' +
+        '<label class="crew-ctl"><span>Catch timing <output id="tmOut' + seat.n + '"></output></span>' +
+        '<input type="range" id="tm' + seat.n + '" min="-20" max="20" step="2" aria-label="' + seat.name + ' catch timing, early to late"></label>';
+      table.appendChild(row);
+      const pw = row.querySelector('#pw' + seat.n), tm = row.querySelector('#tm' + seat.n);
+      const pwOut = row.querySelector('#pwOut' + seat.n), tmOut = row.querySelector('#tmOut' + seat.n);
+      pw.addEventListener('input', () => { crew[i].power = Number(pw.value) / 100; crewPreset = 'custom'; syncCrewOutputs(); });
+      tm.addEventListener('input', () => { crew[i].timing = Number(tm.value) / 100; crewPreset = 'custom'; syncCrewOutputs(); });
+      crewInputs[i] = { pw, tm, pwOut, tmOut };
+    });
+  })();
+
+  function timingText(t) {
+    if (Math.abs(t) < 0.005) return 'On time';
+    return Math.abs(t).toFixed(2) + ' s ' + (t > 0 ? 'late' : 'early');
+  }
+  function syncCrewOutputs() {
+    crew.forEach((r, i) => {
+      crewInputs[i].pwOut.textContent = Math.round(r.power * 100) + '%';
+      crewInputs[i].tmOut.textContent = timingText(r.timing);
+    });
+    $('#crewSummary').textContent = crewPreset === 'custom' ? 'Custom crew' : S.CREW_PRESETS[crewPreset].label;
+    document.querySelectorAll('#presets .chip').forEach((b) => b.setAttribute('aria-pressed', b.dataset.preset === crewPreset ? 'true' : 'false'));
+  }
+  function syncCrewInputs() {
+    crew.forEach((r, i) => {
+      crewInputs[i].pw.value = String(Math.round(r.power * 100));
+      crewInputs[i].tm.value = String(Math.round(r.timing * 100));
+    });
+    syncCrewOutputs();
+  }
+
+  // ----------------------------------------------------- view and result
+  $('#viewBtn').addEventListener('click', () => {
+    coxView = !coxView;
+    $('#viewBtn').textContent = coxView ? 'Cox view' : 'Map view';
+  });
+  $('#zoomIn').addEventListener('click', () => { zoomIdx = Math.max(0, zoomIdx - 1); });
+  $('#zoomOut').addEventListener('click', () => { zoomIdx = Math.min(ZOOMS.length - 1, zoomIdx + 1); });
+  function togglePause() {
+    paused = !paused;
+    $('#pauseBtn').textContent = paused ? 'Resume' : 'Pause';
+  }
+  $('#pauseBtn').addEventListener('click', togglePause);
+  $('#restart').addEventListener('click', () => loadDrill(drillIdx, true));
+  drillSel.addEventListener('change', () => loadDrill(Number(drillSel.value), false));
+  $('#hintBtn').addEventListener('click', () => {
+    const h = $('#hint'); h.hidden = !h.hidden;
+    $('#hintBtn').setAttribute('aria-expanded', String(!h.hidden));
+    $('#hintBtn').textContent = h.hidden ? 'Hint' : 'Hide hint';
+  });
+  $('#retryBtn').addEventListener('click', () => loadDrill(drillIdx, true));
+  $('#nextBtn').addEventListener('click', () => loadDrill(Math.min(S.DRILLS.length - 1, drillIdx + 1), false));
+
+  function showResult() {
+    const r = state.result;
+    $('#resultKicker').textContent = r.status === 'win' ? drill.name + ' · done' : drill.name + ' · try again';
+    const h = $('#resultTitle');
+    h.textContent = r.title; h.className = r.status;
+    $('#resultText').textContent = r.text;
+    const hasNext = r.status === 'win' && drillIdx < S.DRILLS.length - 1;
+    $('#nextBtn').hidden = !hasNext;
+    $('#retryBtn').textContent = r.status === 'win' ? 'Row it again' : 'Try again';
+    $('#result').hidden = false;
+    $('#coach').hidden = true;
+  }
+
+  // ---------------------------------------------------------------- HUD
+  function updateHud() {
+    const s = state;
+    if (s.u > 0.5) { $('#hudSplit').textContent = fmtSplit(500 / s.u); $('#hudSplitU').textContent = '/500m'; }
+    else if (s.u < -0.3) { $('#hudSplit').textContent = '—'; $('#hudSplitU').textContent = 'backing'; }
+    else { $('#hudSplit').textContent = '—'; $('#hudSplitU').textContent = '/500m'; }
+
+    $('#hudRate').textContent = s.seats.some(S.isActive) ? String(s.rate) : '—';
+
+    const r = s.r / DEG;
+    const tu = $('#hudTurnU');
+    $('#hudTurn').textContent = Math.abs(r).toFixed(1) + '°/s';
+    if (Math.abs(r) < 0.3) { tu.textContent = 'steady'; tu.className = 'u'; }
+    else { tu.textContent = 'to ' + (r < 0 ? 'port' : 'stbd'); tu.className = 'u ' + (r < 0 ? 'port' : 'stbd'); }
+
+    const off = S.angDiff(s.psi, drill.course(s)) / DEG;
+    const cu = $('#hudCourseU');
+    $('#hudCourse').textContent = Math.round(Math.abs(off)) + '°';
+    if (Math.abs(off) < 1.5) { cu.textContent = 'on line'; cu.className = 'u'; }
+    else { cu.textContent = 'to ' + (off < 0 ? 'port' : 'stbd'); cu.className = 'u ' + (off < 0 ? 'port' : 'stbd'); }
+  }
+  function updateCoach() { if (state.status === 'run') $('#coachText').textContent = S.explain(state, crew); }
+  function updateProgress() { $('#progress').textContent = drill.progress(state); }
+
+  // ------------------------------------------------------------- canvas
+  const canvas = $('#river');
+  const ctx = canvas.getContext('2d');
+  let cw = 0, ch = 0, dpr = 1;
+  const cam = { x: 0, y: 0, rot: 0, k: 6, ax: 0, ay: 0 };
+  function resize() {
+    const r = canvas.getBoundingClientRect();
+    dpr = Math.min(2.5, window.devicePixelRatio || 1);
+    cw = r.width; ch = r.height;
+    canvas.width = Math.max(1, Math.round(cw * dpr));
+    canvas.height = Math.max(1, Math.round(ch * dpr));
+  }
+  new ResizeObserver(resize).observe(canvas);
+  resize();
+
+  function worldTransform() {
+    const c = Math.cos(cam.rot), s = Math.sin(cam.rot), k = cam.k;
+    ctx.setTransform(dpr * k * c, -dpr * k * s, -dpr * k * s, -dpr * k * c,
+      dpr * (cam.ax - k * (c * cam.x - s * cam.y)), dpr * (cam.ay + k * (s * cam.x + c * cam.y)));
+  }
+  function toScreen(x, y) {
+    const c = Math.cos(cam.rot), s = Math.sin(cam.rot), dx = x - cam.x, dy = y - cam.y;
+    return { x: cam.ax + cam.k * (c * dx - s * dy), y: cam.ay - cam.k * (s * dx + c * dy) };
+  }
+  const px = (n) => n / cam.k; // screen pixels to metres
+
+  const HULL = (() => {
+    const pts = [], L = C.hullLength / 2, B = C.hullHalfBeam;
+    for (let i = 0; i <= 28; i++) {
+      const x = L - (2 * L * i) / 28, t = x / L;
+      pts.push([x, B * Math.pow(Math.max(0, 1 - t * t), 0.55)]);
+    }
+    return pts;
+  })();
+
+  function circle(x, y, r) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); }
+
+  function drawRiver() {
+    const rv = drill.river;
+    ctx.lineJoin = 'round'; ctx.lineCap = 'butt';
+    ctx.beginPath();
+    rv.path.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+    ctx.strokeStyle = W.bank; ctx.lineWidth = rv.width + 5; ctx.stroke();
+    ctx.strokeStyle = W.water; ctx.lineWidth = rv.width; ctx.stroke();
+  }
+
+  function drawTexture() {
+    const rv = drill.river, half = rv.width / 2;
+    const R = Math.hypot(cw, ch) / cam.k * 0.62 + 6;
+    const g = 5;
+    const i0 = Math.floor((cam.x - R) / g), i1 = Math.ceil((cam.x + R) / g);
+    const j0 = Math.floor((cam.y - R) / g), j1 = Math.ceil((cam.y + R) / g);
+    const light = new Path2D(), dark = new Path2D(), trees = [];
+    for (let i = i0; i <= i1; i++) {
+      for (let j = j0; j <= j1; j++) {
+        const h1 = hash(i, j), h2 = hash(j + 911, i - 37);
+        const x = (i + h1) * g, y = (j + h2) * g;
+        const d = S.riverInfo(rv, x, y).dist;
+        if (d < half - 0.6) {
+          const len = 0.6 + h1 * 1.3, tilt = (h2 - 0.5) * 0.35;
+          const p = h2 > 0.5 ? light : dark;
+          p.moveTo(x - len / 2, y - tilt); p.lineTo(x + len / 2, y + tilt);
+        } else if (d > half + 5 && hash(i * 7 + 3, j * 13 - 5) < 0.2) {
+          trees.push({ x, y, r: 1.6 + h1 * 2.2 });
+        }
+      }
+    }
+    ctx.lineCap = 'round';
+    ctx.lineWidth = Math.max(0.12, px(1));
+    ctx.strokeStyle = W.ripple; ctx.stroke(light);
+    ctx.strokeStyle = W.rippleDark; ctx.stroke(dark);
+    for (const t of trees) {
+      ctx.fillStyle = W.shadow; circle(t.x + 0.7, t.y - 0.7, t.r); ctx.fill();
+      ctx.fillStyle = W.canopy; circle(t.x, t.y, t.r); ctx.fill();
+      ctx.fillStyle = W.canopyLight; circle(t.x - t.r * 0.25, t.y + t.r * 0.25, t.r * 0.55); ctx.fill();
+    }
+  }
+
+  function drawMarkers(labels) {
+    if (!drill.markers && drill.id !== 'free' && drill.id !== 'straight') return;
+    const rv = drill.river, half = rv.width / 2;
+    const start = S.riverInfo(rv, drill.start.x || 0, drill.start.y || 0).along;
+    const total = S.riverInfo(rv, rv.path[rv.path.length - 1][0], rv.path[rv.path.length - 1][1]).total;
+    for (let a = 100; start + a < total; a += 100) {
+      const p = S.riverPointAt(rv, start + a);
+      if (Math.hypot(p.x - cam.x, p.y - cam.y) > 160) continue;
+      const lx = p.x - Math.cos(p.dir) * (half + 2), ly = p.y + Math.sin(p.dir) * (half + 2);
+      ctx.fillStyle = '#F4F1E8'; ctx.fillRect(lx - 0.6, ly - 0.6, 1.2, 1.2);
+      labels.push({ x: lx, y: ly, text: a + ' m', dx: 0, dy: -10 });
+    }
+  }
+
+  function drawObjectsBelow(labels) {
+    drawMarkers(labels);
+    for (const o of drill.objects) {
+      if (o.type === 'buoys') {
+        const r = Math.max(0.3, px(2.2));
+        for (let y = o.y0; y <= o.y1; y += o.step) {
+          if (Math.abs(y - cam.y) > 140) continue;
+          for (const x of o.xs) {
+            ctx.fillStyle = y % 50 === 0 ? W.buoyMark : W.buoy;
+            circle(x, y, r); ctx.fill();
+          }
+        }
+      } else if (o.type === 'line') {
+        if (Math.abs(o.y - cam.y) > 160) continue;
+        ctx.setLineDash([0.8, 0.8]);
+        ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = Math.max(0.2, px(2));
+        ctx.beginPath(); ctx.moveTo(o.x0, o.y); ctx.lineTo(o.x1, o.y); ctx.stroke();
+        ctx.setLineDash([]);
+        labels.push({ x: o.x0 - 1.5, y: o.y, text: o.label, align: 'right', dy: 4 });
+      } else if (o.type === 'tree') {
+        drawTree(o.y);
+      } else if (o.type === 'arrow') {
+        ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.fillStyle = 'rgba(255,255,255,0.35)';
+        ctx.lineWidth = 0.5; ctx.lineCap = 'round';
+        for (const x of [-13, 13]) {
+          ctx.beginPath(); ctx.moveTo(x, 7); ctx.lineTo(x, -5); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(x - 1.6, -4); ctx.lineTo(x, -8); ctx.lineTo(x + 1.6, -4); ctx.closePath(); ctx.fill();
+          labels.push({ x, y: 9, text: 'Downstream', dy: -2 });
+        }
+      } else if (o.type === 'bridge') {
+        drawBridgeBase();
+      }
+    }
+  }
+
+  function drawTree(y) {
+    const half = drill.river.width / 2 + 8;
+    ctx.lineCap = 'round';
+    for (let k = 0; k <= 22; k++) {
+      const h = hash(k, 99), x = -half + (k / 22) * 2 * half;
+      const len = 2 + h * 3.5, ang = (h - 0.5) * 1.3;
+      const ex = x + Math.sin(ang) * len, ey = y + 0.4 + Math.cos(ang) * len;
+      ctx.strokeStyle = W.trunk; ctx.lineWidth = 0.28;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(ex, ey); ctx.stroke();
+      ctx.fillStyle = W.leaf; circle(ex, ey, 0.9 + h * 0.9); ctx.fill();
+    }
+    ctx.strokeStyle = W.trunk; ctx.lineWidth = 1.1;
+    ctx.beginPath(); ctx.moveTo(-half, y); ctx.lineTo(half, y + 0.15); ctx.stroke();
+    ctx.fillStyle = W.trunk; circle(-drill.river.width / 2 - 2.5, y + 0.2, 2.4); ctx.fill();
+  }
+
+  function drawBridgeBase() {
+    const b = drill.bridge;
+    for (const r of S.bridgeSolids(b)) {
+      if (r.kind === 'pier') {
+        ctx.fillStyle = W.starling; ctx.fillRect(r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0);
+        ctx.fillStyle = W.stone; ctx.fillRect(r.x0 + 0.3, b.y, r.x1 - r.x0 - 0.6, b.depth);
+      } else {
+        const y = (r.y0 + r.y1) / 2;
+        ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 0.12;
+        ctx.beginPath(); ctx.moveTo(r.x0, y); ctx.lineTo(r.x1, y); ctx.stroke();
+        let k = 0;
+        for (let x = r.x0 + 0.5; x < r.x1; x += 0.9, k++) {
+          ctx.fillStyle = k % 2 ? '#F4F1E8' : '#D8402F';
+          circle(x, y, 0.32); ctx.fill();
+        }
+      }
+    }
+  }
+
+  function drawBridgeDeck(labels) {
+    const b = drill.bridge;
+    ctx.fillStyle = W.deckBridge; ctx.fillRect(-36, b.y, 72, b.depth);
+    ctx.fillStyle = '#8F8676';
+    ctx.fillRect(-36, b.y, 72, 0.45); ctx.fillRect(-36, b.y + b.depth - 0.45, 72, 0.45);
+    b.solids.forEach((sd) => {
+      if (sd.kind === 'closed') labels.push({ x: (sd.x0 + sd.x1) / 2, y: b.y + b.depth / 2, sign: 'closed' });
+    });
+    b.open.forEach((o) => labels.push({ x: (o.x0 + o.x1) / 2, y: b.y + b.depth / 2, sign: 'open' }));
+  }
+
+  function drawPuddles() {
+    ctx.lineWidth = Math.max(0.08, px(1));
+    for (const p of puddles) {
+      const age = state.t - p.t;
+      if (age > 10 || age < 0) continue;
+      const a = 1 - age / 10, r = 0.32 + age * 0.05;
+      ctx.strokeStyle = W.foam + (0.5 * a).toFixed(3) + ')';
+      circle(p.x, p.y, r); ctx.stroke();
+      ctx.fillStyle = W.foam + (0.18 * a).toFixed(3) + ')';
+      circle(p.x, p.y, r * 0.45); ctx.fill();
+    }
+  }
+
+  function drawWake() {
+    ctx.lineWidth = 0.5; ctx.lineCap = 'round';
+    for (let i = 1; i < wake.length; i++) {
+      const a = 1 - (state.t - wake[i].t) / 20;
+      if (a <= 0) continue;
+      ctx.strokeStyle = W.foam + (0.16 * a).toFixed(3) + ')';
+      ctx.beginPath(); ctx.moveTo(wake[i - 1].x, wake[i - 1].y); ctx.lineTo(wake[i].x, wake[i].y); ctx.stroke();
+    }
+  }
+
+  function drawPrediction() {
+    const s = state;
+    if (Math.abs(s.u) < 0.6) return;
+    const bow = S.toWorld(s, s.u > 0 ? C.hullLength / 2 : -C.hullLength / 2, 0);
+    let x = bow.x, y = bow.y, psi = s.psi;
+    ctx.beginPath(); ctx.moveTo(x, y);
+    for (let t = 0; t < 8; t += 0.25) {
+      psi += s.r * 0.25;
+      x += (s.u * Math.sin(psi) + s.v * Math.cos(psi)) * 0.25;
+      y += (s.u * Math.cos(psi) - s.v * Math.sin(psi)) * 0.25;
+      ctx.lineTo(x, y);
+    }
+    ctx.setLineDash([1.2, 1.4]);
+    ctx.lineWidth = Math.max(0.16, px(1.4)); ctx.strokeStyle = W.path; ctx.lineCap = 'butt';
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  function drawBoat(labels) {
+    const s = state, sp = Math.sin(s.psi), cp = Math.cos(s.psi);
+    ctx.save();
+    ctx.transform(sp, cp, cp, -sp, s.x, s.y); // boat frame: x forward, y starboard
+
+    // Foam around working blades
+    for (let i = 0; i < 8; i++) {
+      const seat = SEATS[i], q = s.seats[i];
+      if (!q.inWater) continue;
+      const a = q.angle, dx = Math.sin(a), dy = seat.side * Math.cos(a);
+      const cx = seat.x + C.outboard * dx, cy = seat.side * C.pinOffset + C.outboard * dy;
+      const strength = q.mode === 'hold' ? 0.55 : 0.2 + 0.5 * Math.min(1, q.force / 160);
+      ctx.fillStyle = W.foam + strength.toFixed(3) + ')';
+      ctx.beginPath(); ctx.ellipse(cx, cy, q.mode === 'hold' ? 0.75 : 0.5, 0.3, Math.atan2(dy, dx), 0, Math.PI * 2); ctx.fill();
+    }
+
+    // Riggers
+    ctx.strokeStyle = W.rigger; ctx.lineWidth = Math.max(0.05, px(1)); ctx.lineCap = 'round';
+    for (const seat of SEATS) {
+      const py = seat.side * C.pinOffset, hy = seat.side * C.hullHalfBeam * 0.9;
+      ctx.beginPath();
+      ctx.moveTo(seat.x - 0.35, hy); ctx.lineTo(seat.x, py); ctx.lineTo(seat.x + 0.4, hy);
+      ctx.stroke();
+    }
+
+    // Hull and decks
+    const hull = new Path2D();
+    hull.moveTo(HULL[0][0], 0);
+    HULL.forEach(([x, b]) => hull.lineTo(x, b));
+    for (let i = HULL.length - 1; i >= 0; i--) hull.lineTo(HULL[i][0], -HULL[i][1]);
+    hull.closePath();
+    ctx.fillStyle = W.hull; ctx.fill(hull);
+    ctx.save(); ctx.clip(hull);
+    ctx.fillStyle = W.deck;
+    ctx.fillRect(6.5, -1, 3, 2);
+    ctx.fillRect(-9, -1, 1.7, 2);
+    ctx.restore();
+    ctx.strokeStyle = W.hullEdge; ctx.lineWidth = Math.max(0.03, px(0.8)); ctx.stroke(hull);
+    ctx.fillStyle = '#FFFFFF'; circle(C.hullLength / 2 - 0.05, 0, Math.max(0.1, px(1.6))); ctx.fill();
+
+    // Oars
+    for (let i = 0; i < 8; i++) {
+      const seat = SEATS[i], q = s.seats[i];
+      const a = q.angle, dx = Math.sin(a), dy = seat.side * Math.cos(a);
+      const pxn = seat.x, pyn = seat.side * C.pinOffset;
+      const hx = pxn - C.inboard * dx, hy = pyn - C.inboard * dy;
+      const b0 = C.bladeTip - 0.52;
+      const sx = pxn + b0 * dx, sy = pyn + b0 * dy, tx = pxn + C.bladeTip * dx, ty = pyn + C.bladeTip * dy;
+      ctx.strokeStyle = W.shaft; ctx.lineWidth = Math.max(0.05, px(1.3)); ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(sx, sy); ctx.stroke();
+      const hw = Math.max(q.inWater ? 0.06 : 0.12, px(q.inWater ? 1.3 : 2.2));
+      const nx = -dy, ny = dx;
+      ctx.fillStyle = W.blade;
+      ctx.beginPath();
+      ctx.moveTo(sx + nx * hw * 0.5, sy + ny * hw * 0.5);
+      ctx.lineTo(tx + nx * hw, ty + ny * hw);
+      ctx.lineTo(tx - nx * hw, ty - ny * hw);
+      ctx.lineTo(sx - nx * hw * 0.5, sy - ny * hw * 0.5);
+      ctx.closePath(); ctx.fill();
+    }
+
+    // Rowers slide toward the stern for the catch and back toward the bow at the finish
+    const rr = Math.max(0.24, px(2.6));
+    for (let i = 0; i < 8; i++) {
+      const seat = SEATS[i], q = s.seats[i];
+      const f = Math.max(0, Math.min(1, (C.catchAngle - q.angle) / (C.catchAngle - C.finishAngle)));
+      const rx = seat.x + 0.3 + 0.6 * f;
+      ctx.fillStyle = seat.side < 0 ? W.port : W.stbd;
+      circle(rx, 0, rr); ctx.fill();
+      ctx.fillStyle = W.head; circle(rx, 0, rr * 0.45); ctx.fill();
+      if (cam.k >= 9) {
+        const w = S.toWorld(s, rx, seat.side * -1.05);
+        labels.push({ x: w.x, y: w.y, text: String(seat.n), small: true });
+      }
+    }
+
+    // Cox and rudder
+    ctx.fillStyle = W.cox; circle(C.coxX, 0, Math.max(0.26, px(2.8))); ctx.fill();
+    ctx.strokeStyle = W.hullEdge; ctx.lineWidth = Math.max(0.04, px(1)); ctx.stroke();
+    const phi = s.delta * 0.6, rx0 = -C.hullLength / 2;
+    ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = Math.max(0.08, px(1.8));
+    ctx.beginPath(); ctx.moveTo(rx0, 0); ctx.lineTo(rx0 - 0.9 * Math.cos(phi), 0.9 * Math.sin(phi)); ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function drawLabels(labels) {
+    ctx.textBaseline = 'middle';
+    for (const l of labels) {
+      const p = toScreen(l.x, l.y);
+      if (p.x < -60 || p.x > cw + 60 || p.y < -30 || p.y > ch + 30) continue;
+      if (l.sign) {
+        const r = 9;
+        ctx.fillStyle = l.sign === 'closed' ? '#D8402F' : '#2E9E5B';
+        circle(p.x, p.y, r); ctx.fill();
+        ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 2; ctx.stroke();
+        ctx.beginPath();
+        if (l.sign === 'closed') { ctx.moveTo(p.x - 4, p.y - 4); ctx.lineTo(p.x + 4, p.y + 4); ctx.moveTo(p.x + 4, p.y - 4); ctx.lineTo(p.x - 4, p.y + 4); }
+        else { ctx.moveTo(p.x - 4, p.y); ctx.lineTo(p.x - 1, p.y + 3.5); ctx.lineTo(p.x + 4.5, p.y - 3.5); }
+        ctx.stroke();
+        continue;
+      }
+      ctx.font = (l.small ? '600 11px ' : '600 12px ') + LABEL_FONT;
+      ctx.textAlign = l.align || 'center';
+      const x = p.x + (l.dx || 0), y = p.y + (l.dy || 0);
+      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineJoin = 'round';
+      ctx.strokeText(l.text, x, y);
+      ctx.fillStyle = W.text; ctx.fillText(l.text, x, y);
+    }
+  }
+
+  const LABEL_FONT = '"Barlow", system-ui, -apple-system, sans-serif';
+  function draw(dt) {
+    if (!cw || !ch) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = W.land; ctx.fillRect(0, 0, cw, ch);
+    camAy += ((coxView ? 0.68 : 0.5) - camAy) * Math.min(1, dt * 5);
+    cam.k = ch / ZOOMS[zoomIdx];
+    cam.ax = cw / 2; cam.ay = ch * camAy;
+    cam.x = state.x; cam.y = state.y; cam.rot = camRot;
+    worldTransform();
+    const labels = [];
+    drawRiver();
+    drawTexture();
+    drawObjectsBelow(labels);
+    drawPuddles();
+    drawWake();
+    drawPrediction();
+    drawBoat(labels);
+    if (drill.bridge) drawBridgeDeck(labels);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    drawLabels(labels);
+  }
+
+  // -------------------------------------------------------------- loop
+  const H = 1 / 120;
+  let last = performance.now(), acc = 0, hudClock = 0, coachClock = 0, progClock = 0;
+  function frame(now) {
+    const dt = Math.min(0.1, (now - last) / 1000);
+    last = now;
+    if (!paused && state.status === 'run') {
+      acc += dt;
+      let n = 0;
+      while (acc >= H && n < 24) { S.update(state, crew, drill, H); acc -= H; n++; }
+      if (n === 24) acc = 0;
+      for (const e of state.events) if (e.type === 'puddle') puddles.push({ x: e.x, y: e.y, t: state.t });
+      state.events.length = 0;
+      if (puddles.length > 260) puddles.splice(0, puddles.length - 260);
+      wakeClock += dt;
+      if (wakeClock > 0.15) {
+        wakeClock = 0;
+        const p = S.toWorld(state, -C.hullLength / 2, 0);
+        wake.push({ x: p.x, y: p.y, t: state.t });
+        if (wake.length > 140) wake.shift();
+      }
+    }
+    camRot += S.angDiff(coxView ? state.psi : 0, camRot) * Math.min(1, dt * 5);
+    draw(dt);
+    updateSeatsLive();
+    hudClock += dt; if (hudClock > 0.1) { hudClock = 0; updateHud(); }
+    progClock += dt; if (progClock > 0.25) { progClock = 0; updateProgress(); }
+    coachClock += dt; if (coachClock > 0.7) { coachClock = 0; updateCoach(); }
+    if (state.status !== lastStatus) {
+      lastStatus = state.status;
+      if (state.status !== 'run') { updateProgress(); showResult(); }
+    }
+    if (bubbleUntil && now > bubbleUntil) { bubbleUntil = 0; $('#bubble').hidden = true; }
+    requestAnimationFrame(frame);
+  }
+
+  // ----------------------------------------------------------- keyboard
+  document.addEventListener('keydown', (e) => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const t = e.target;
+    if (t && (t.tagName === 'SELECT' || t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && t.id !== 'rudder'))) return;
+    const k = e.key.toLowerCase();
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      if (t && t.id === 'rudder') return; // the slider handles its own arrows
+      e.preventDefault();
+      setRudder(Number(rudder.value) + (e.key === 'ArrowLeft' ? -10 : 10));
+    } else if (k === 'c') setRudder(0);
+    else if (k === 'a') { selection = new Set([1, 2, 3, 4, 5, 6, 7, 8]); renderSelection(); }
+    else if (k === 'p') { selection = new Set([2, 4, 6, 8]); renderSelection(); }
+    else if (k === 's') { selection = new Set([1, 3, 5, 7]); renderSelection(); }
+    else if (k >= '1' && k <= '8') { selection = new Set([Number(k)]); renderSelection(); }
+    else if (k === 'r') doCall('row');
+    else if (k === 'b') doCall('back');
+    else if (k === 'h') doCall('hold');
+    else if (k === 'w') doCall('easy');
+    else if (e.key === ' ' && (!t || t.tagName !== 'BUTTON')) { e.preventDefault(); togglePause(); }
+  });
+
+  loadDrill(0, false);
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
